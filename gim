@@ -1,0 +1,55 @@
+#!/bin/bash
+# copyright (c) 2014-2015 Julian Wergieluk  <julian@wergieluk.com>
+# gim - a simple wrapper script for transparent editing of gpg-encrypted files.
+#
+# The script expects the name of a gpg-encrypted file as an argument. 
+# This file is decrypted into a temporary file which is opened with a 
+# predefined EDITOR, and again encrypted after the EDITOR exits.
+#
+# WARNING: This solution is only a better-than-nothing solution as the plain
+# text is stored in a temporary file, albeit with read premissions restricted to
+# the calling user. Use at your own risk!
+
+# Configuration:
+
+readonly GPG_RECIPIENT="DBCF703C"
+readonly EDITOR="vim"
+readonly TMPDIR="/tmp"
+
+
+set -u; set -e
+
+if [[ $# -ne 1 ]]; then
+    echo "Usage: `basename $0` encrypted-file"
+    exit
+fi
+
+umask 077
+
+readonly CIPHER_TEXT="$1"
+readonly PLAIN_TEXT="`mktemp --dry-run -p $TMPDIR`" 
+echo "PLAIN_TEXT=$PLAIN_TEXT"
+
+# Temporary file should not exist. Exit if this is not the case.
+if [[ -f "$PLAIN_TEXT" ]]; then echo "ERROR: Temporary file $PLAIN_TEXT exits."; exit; fi
+
+if [[ -f "$CIPHER_TEXT" ]]
+    then
+        gpg -d -o "$PLAIN_TEXT" "$CIPHER_TEXT"
+    else
+        # TODO: Check if new cipher text file can be created.
+        touch "$CIPHER_TEXT"
+fi
+
+$EDITOR $PLAIN_TEXT
+
+# If PLAIN_TEXT exists, then encrypt it.
+if [[ -f "$PLAIN_TEXT" ]]
+    then
+        # WARNING: If the following command generates an error, the script exits
+        # and the PLAIN_TEXT file is left untouched in the TMP directory. 
+        gpg -z 9 --yes --encrypt --armor --recipient "$GPG_RECIPIENT" --output "$CIPHER_TEXT" "$PLAIN_TEXT"
+fi
+
+rm $PLAIN_TEXT
+
