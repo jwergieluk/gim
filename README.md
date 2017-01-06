@@ -1,2 +1,2 @@
 # gim
-A simple wrapper script for transparent editing of gpg-encrypted files.
+A simple bash script for transparent editing of gpg-encrypted files.
